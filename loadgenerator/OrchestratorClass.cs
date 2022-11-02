@@ -128,7 +128,7 @@ namespace LoadGeneratorDotnetCore
             // a. shared cancellation token is triggered
             // b. we've emitted the required quantity of messages
             // Keep running forever otherwise    
-            const int maxConcurrency = 10000;
+            const int maxConcurrency = 100000;
             List<Task> tasks = new List<Task>();
 
             while (this.totalMessageCount < this.targetMessageCount ||
@@ -180,7 +180,10 @@ namespace LoadGeneratorDotnetCore
                         //     Interlocked.Add(ref this.totalMessageCount, this.batchSize);
                         // }, TaskContinuationOptions.OnlyOnRanToCompletion);
                     }
-                    catch { } // swallow all exceptions
+                    catch (Exception ex) {
+
+                        Console.WriteLine(ex);
+                    } // swallow all exceptions
                 }
             }
             // Clean up

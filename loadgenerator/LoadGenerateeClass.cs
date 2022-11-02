@@ -15,20 +15,28 @@ namespace LoadGeneratorDotnetCore
         {
             this.connectionString = connectionString;
         }
-        public byte[] GeneratePayload(bool generateJsonPayload, int payloadSize)
+        public byte[] GeneratePayload(bool generateJsonPayload, int payloadSize, string? payloadOverride)
         {
             string payload = "";
 
-            if (generateJsonPayload)
+            if (String.IsNullOrEmpty(payloadOverride))
             {
-                string utcTimeStamp = ((long)(DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds).ToString();
-                string randomString = new Bogus.Randomizer().ClampString("", payloadSize, payloadSize);
-                payload = $"{{'dt':{utcTimeStamp},'payload':'{randomString}'}}";
+                if (generateJsonPayload)
+                {
+                    string utcTimeStamp = ((long)(DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds).ToString();
+                    string randomString = new Bogus.Randomizer().ClampString("", payloadSize, payloadSize);
+                    payload = $"{{'dt':{utcTimeStamp},'payload':'{randomString}'}}";
+                }
+                else
+                {
+                    payload = new Bogus.Randomizer().ClampString("", payloadSize, payloadSize);
+                }
             }
             else
             {
-                payload = new Bogus.Randomizer().ClampString("", payloadSize, payloadSize);
+                payload = payloadOverride;
             }
+
             return Encoding.UTF8.GetBytes(payload);
         }
         public abstract Task GenerateBatchAndSend(int batchSize, bool dryRun, CancellationToken cancellationToken, Func<byte[]> loadGenerator);

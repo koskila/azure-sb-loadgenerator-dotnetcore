@@ -2,47 +2,33 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.ServiceBus;
+//using Microsoft.Azure.ServiceBus;
+using Azure.Messaging.ServiceBus;
 
 namespace LoadGeneratorDotnetCore
 {
     class SBLoadGeneratorClass : LoadGenerateeClass
     {
-        private ServiceBusConnectionStringBuilder sbConnectionString;
-        private string entityPath;
-        private QueueClient sendClient;
+        private string EntityPath;
+        private ServiceBusClient SendClient;
+        
         public SBLoadGeneratorClass(
             string connectionString, string entityPath) : base(connectionString)
         {
-            this.entityPath = entityPath;
+            var opt = new ServiceBusClientOptions();
+            opt.RetryOptions.MaxRetries = 0;
+            opt.RetryOptions.Mode = ServiceBusRetryMode.Fixed;
+            this.SendClient = new Azure.Messaging.ServiceBus.ServiceBusClient(connectionString, opt);
 
-            try
-            {
-                this.sbConnectionString = new ServiceBusConnectionStringBuilder(connectionString);
-            }
-            catch (Exception e)
-            {
-                throw e;
-            }
-            // Successfully parsed the supplied connection string but need to ensure that for Event Hubs either
-            // ...;EntityPath=... exists either in the conn string or in executionOptions
-            if (String.IsNullOrWhiteSpace(sbConnectionString.EntityPath))
-            {
-                if (String.IsNullOrWhiteSpace(entityPath))
-                {
-                    throw new Exception("Please specify event hub name");
-                }
-                this.sbConnectionString.EntityPath = entityPath;
-            }
-            this.sendClient = new QueueClient(sbConnectionString, retryPolicy: RetryPolicy.NoRetry);
+            EntityPath = entityPath;
         }
 
         public override Task GenerateBatchAndSend(int batchSize, bool dryRun, CancellationToken cancellationToken, Func<byte[]> loadGenerator)
         {
-            List<Message> batchOfMessages = new List<Message>();
+            var batchOfMessages = new List<ServiceBusMessage>();
             for (int i = 0; i < batchSize && !cancellationToken.IsCancellationRequested; i++)
             {
-                batchOfMessages.Add(new Message(loadGenerator()));
+                batchOfMessages.Add(new ServiceBusMessage(loadGenerator()));
             }
             if (cancellationToken.IsCancellationRequested)
             {
@@ -52,7 +38,17 @@ namespace LoadGeneratorDotnetCore
             }
             if (!dryRun)
             {
-                return this.sendClient.SendAsync(batchOfMessages);
+                var sender = this.SendClient.CreateSender(EntityPath);
+                var t = sender.SendMessagesAsync(batchOfMessages);
+                t.ContinueWith((x) =>
+                {
+                    if (x.Exception != null)
+                    {
+                        Console.WriteLine(x.Exception);
+                    }
+                    sender.CloseAsync().Wait();
+                });
+                return t;
             }
             else
             {

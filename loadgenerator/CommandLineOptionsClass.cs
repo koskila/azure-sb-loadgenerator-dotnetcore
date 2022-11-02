@@ -37,6 +37,21 @@ namespace LoadGeneratorDotnetCore
             }
         }
 
+        private string payload;
+        [Option('p', "payload", Required = false,
+            HelpText = "String payload to use", Default = "")]
+        public string Payload
+        {
+            get
+            {
+                return payload;
+            }
+            set
+            {
+                payload = value;
+            }
+        }
+
         [Option('j', "json", Required = false,
             HelpText = "Generate json payload with a random string or just a random string itself", Default = true)]
         public bool GenerateJson { get; set; }

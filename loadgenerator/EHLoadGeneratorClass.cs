@@ -2,40 +2,28 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.EventHubs;
+using Azure.Messaging.EventHubs;
 
 namespace LoadGeneratorDotnetCore
 {
     class EHLoadGeneratorClass : LoadGenerateeClass
     {
-        private EventHubsConnectionStringBuilder ehConnectionString;
-        private string entityPath;
-        private EventHubClient sendClient;
+        private string EntityPath;
+        private Azure.Messaging.EventHubs.Producer.EventHubProducerClient SendClient;
+
         public EHLoadGeneratorClass(
             string connectionString, string entityPath) : base(connectionString)
         {
-            this.entityPath = entityPath;
+            this.EntityPath = entityPath;
 
-            try
-            {
-                this.ehConnectionString = new EventHubsConnectionStringBuilder(base.connectionString);
-            }
-            catch (Exception e)
-            {
-                throw e;
-            }
             // Successfully parsed the supplied connection string but need to ensure that for Event Hubs either
             // ...;EntityPath=... exists either in the conn string or in executionOptions
-            if (String.IsNullOrWhiteSpace(this.ehConnectionString.EntityPath))
+            if (connectionString.IndexOf(";EntityPath=") < 0)
             {
-                if (String.IsNullOrWhiteSpace(entityPath))
-                {
-                    throw new Exception("Please specify event hub name");
-                }
-                this.ehConnectionString.EntityPath = entityPath;
+                throw new Exception("Please specify event hub name");
             }
-            this.sendClient = EventHubClient.CreateFromConnectionString(ehConnectionString.ToString());
-            this.sendClient.RetryPolicy = RetryPolicy.NoRetry;
+
+            SendClient = new Azure.Messaging.EventHubs.Producer.EventHubProducerClient(connectionString);
         }
         public override Task GenerateBatchAndSend(int batchSize, bool dryRun, CancellationToken cancellationToken, Func<byte[]> loadGenerator)
         {
@@ -52,8 +40,7 @@ namespace LoadGeneratorDotnetCore
             }
             if (!dryRun)
             {
-                return this.sendClient.SendAsync(batchOfMessages);
-                // return Task.CompletedTask;
+                return this.SendClient.SendAsync(batchOfMessages);
             }
             else
             {
